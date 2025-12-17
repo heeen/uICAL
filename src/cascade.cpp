@@ -62,15 +62,44 @@ namespace uICAL {
             return false;
         }
 
-        return this->resetCascade(it, [&](counters_t::iterator it) {
+        // needsAdvance is set when a counter exhausts its span while seeking
+        // This signals that we should advance via the cascade's next() mechanism
+        bool needsAdvance = false;
+
+        bool result = this->resetCascade(it, [&](counters_t::iterator it) {
             while (!(*it)->syncLock(begin, (*it)->value())) {
                 if (!(*it)->next()) {
-                    ostream out;
-                    out << "Can not seek " << (*it)->name() << " (" << "base: " << base << " from: " << begin << ")";
-                    throw ParseError(out);
+                    // Counter exhausted its current span while seeking to begin.
+                    // This happens when DTSTART doesn't fall on a valid BYDAY, etc.
+                    // Signal that we need to advance to next period.
+                    needsAdvance = true;
+                    return;  // Exit the sync lambda, let cascade handle it
                 }
             }
         });
+
+        if (!result) {
+            return false;
+        }
+
+        // If any counter exhausted while seeking, advance cascade to find first valid occurrence
+        if (needsAdvance) {
+            // Keep calling next() until we find a valid occurrence or exhaust
+            int maxIterations = 1000;  // Safety limit
+            while (maxIterations-- > 0) {
+                if (!this->next()) {
+                    return false;
+                }
+                // Check if current value is >= begin
+                DateStamp current = this->value();
+                if (begin <= current) {
+                    return true;
+                }
+            }
+            return false;  // Exceeded iteration limit
+        }
+
+        return true;
     }
 
     bool Cascade::resetCascade(counters_t::iterator it, sync_f sync) {

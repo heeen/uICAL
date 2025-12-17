@@ -40,7 +40,9 @@ namespace uICAL {
     }
 
     bool ByWeekDayCounter::syncLock(const DateStamp& from, const DateStamp& now) const {
-        return from.day <= now.day;
+        // Use full date comparison, not just day-of-month
+        // This allows seeking past DTSTART when DTSTART doesn't fall on a BYDAY
+        return from <= now;
     }
 
     void ByWeekDayCounter::wrap() {
