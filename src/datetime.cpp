@@ -43,7 +43,7 @@ namespace uICAL {
         // Handle date-only format (YYYYMMDD) for all-day events per RFC 5545
         if (datetime.length() == 8) {
             DateStamp ds(datetime + "T000000");
-            this->tz = TZ::unaware();
+            this->tz = new_ptr<TZ>("Z");  // Use UTC for TZ awareness compatibility
             this->construct(ds, tz);
             return;
         }
