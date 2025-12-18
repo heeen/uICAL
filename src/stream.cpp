@@ -80,16 +80,28 @@ namespace uICAL {
         }
 
         bool istream_Stream::readuntil(string& st, char delim) {
-            size_t len = 81;
-            char buf[len];
+            // ICS lines can be very long before folding - use larger buffer
+            // and loop to handle lines longer than buffer
+            static const size_t CHUNK_SIZE = 256;
+            char buf[CHUNK_SIZE];
+            st = "";
 
-            size_t read = this->stm.readBytesUntil(delim, buf, len-1);
-            if (read > 0) {
-                buf[read] = 0;
-                st = buf;
-                return true;
+            while (true) {
+                size_t bytesRead = this->stm.readBytesUntil(delim, buf, CHUNK_SIZE - 1);
+                if (bytesRead == 0) {
+                    // Timeout or EOF with no data
+                    return !st.isEmpty();
+                }
+
+                buf[bytesRead] = 0;
+                st += buf;
+
+                // If we read less than buffer size, we hit the delimiter
+                if (bytesRead < CHUNK_SIZE - 1) {
+                    return true;
+                }
+                // Buffer was full - continue reading until delimiter
             }
-            return false;
         }
 
         istream_String::istream_String(const String& st)
